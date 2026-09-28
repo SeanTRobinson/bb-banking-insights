@@ -1,0 +1,52 @@
+{
+  "type": "object",
+  "required": ["section_id", "summary", "stories"],
+  "properties": {
+    "section_id": { "type": "string" },
+    "owner": { "type": "string" },
+    "summary": {
+      "type": "string",
+      "description": "Two to four sentences framing the week for this section."
+    },
+    "employee_experience_note": {
+      "type": "string",
+      "description": "For non-Employee sections: employee context that did not map cleanly to one story. Empty when employee context is already woven into stories."
+    },
+    "trend_direction": {
+      "type": "string",
+      "enum": ["accelerating", "steady", "cooling", "mixed", "unclear"]
+    },
+    "key_themes": {
+      "type": "array",
+      "maxItems": 4,
+      "items": { "type": "string" }
+    },
+    "stories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "source", "link", "insight"],
+        "properties": {
+          "title": { "type": "string" },
+          "date": { "type": "string" },
+          "source": { "type": "string" },
+          "link": {
+            "type": "string",
+            "description": "Copied verbatim from the supplied fact."
+          },
+          "insight": { "type": "string" },
+          "employee_impact": { "type": "string" },
+          "customer_impact": { "type": "string" },
+          "competitive_angle": { "type": "string" },
+          "customer_name": { "type": "string" },
+          "competitor_name": { "type": "string" }
+        }
+      }
+    },
+    "strategic_questions": {
+      "type": "array",
+      "maxItems": 3,
+      "items": { "type": "string" }
+    }
+  }
+}

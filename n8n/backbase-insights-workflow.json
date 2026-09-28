@@ -1,0 +1,1898 @@
+{
+  "name": "Backbase Insights 3.0",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "00000000-0000-0000-0000-000000000001",
+      "name": "Monday 6 AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -2400,
+        900
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "00000000-0000-0000-0000-000000000002",
+      "name": "Manual Dry Run Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2400,
+        1080
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "dryRun",
+              "value": "={{ false }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000003",
+      "name": "Set dryRun false",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2176,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "dryRun",
+              "value": "={{ true }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000004",
+      "name": "Set dryRun true",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2176,
+        1080
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const dryRun = $json.dryRun === true;\nconst now = new Date();\nconst weekEnd = new Date(now);\nconst weekStart = new Date(now);\nweekStart.setDate(weekStart.getDate() - 7);\n\nfunction uuid() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {\n    const r = (Math.random() * 16) | 0;\n    const v = c === 'x' ? r : (r & 0x3) | 0x8;\n    return v.toString(16);\n  });\n}\n\nconst run = {\n  run_id: uuid(),\n  dry_run: dryRun,\n  week_start: weekStart.toISOString().split('T')[0],\n  week_end: weekEnd.toISOString().split('T')[0],\n  edition_date: weekEnd.toISOString().split('T')[0],\n  budget: {\n    weekly_target_usd: 4.0,\n    // Rough per-1M-token pricing placeholders — update to match the model\n    // you actually configure in the HTTP nodes' jsonBody \"model\" field.\n    triage_model_input_per_m: 0.8,\n    triage_model_output_per_m: 4.0,\n    main_model_input_per_m: 3.0,\n    main_model_output_per_m: 15.0\n  }\n};\n\nreturn [{ json: run }];"
+      },
+      "id": "00000000-0000-0000-0000-000000000005",
+      "name": "Initialize Run",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1952,
+        990
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sources = [\n  { \"name\": \"American Banker\", \"url\": \"https://www.americanbanker.com/feed\", \"lob_tags\": [\"cross_cutting\"] },\n  { \"name\": \"Banking Dive\", \"url\": \"https://www.bankingdive.com/feeds/news/\", \"lob_tags\": [\"cross_cutting\"] },\n  { \"name\": \"Call Centre Helper\", \"url\": \"https://www.callcentrehelper.com/feed/\", \"lob_tags\": [\"digital_assist\"] },\n  { \"name\": \"Finextra\", \"url\": \"https://www.finextra.com/rss/latest.xml\", \"lob_tags\": [\"cross_cutting\"] },\n  { \"name\": \"The Financial Brand\", \"url\": \"https://thefinancialbrand.com/feed/\", \"lob_tags\": [\"retail\", \"cross_cutting\"] },\n  { \"name\": \"FinTech Futures\", \"url\": \"https://www.fintechfutures.com/feed/\", \"lob_tags\": [\"cross_cutting\"] },\n  { \"name\": \"Bank Automation News\", \"url\": \"https://bankautomationnews.com/feed\", \"lob_tags\": [\"digital_assist\", \"cross_cutting\"] },\n  { \"name\": \"PaymentsSource\", \"url\": \"https://www.paymentssource.com/feed\", \"lob_tags\": [\"sme_commercial\", \"retail\"] },\n  { \"name\": \"Independent Banker\", \"url\": \"https://independentbanker.org/feed\", \"lob_tags\": [\"sme_commercial\"] },\n  { \"name\": \"NFIB News\", \"url\": \"https://www.nfib.com/news/rss\", \"lob_tags\": [\"sme_commercial\"] },\n  { \"name\": \"Small Business Trends\", \"url\": \"https://smallbiztrends.com/feed\", \"lob_tags\": [\"sme_commercial\"] },\n  { \"name\": \"Bankrate News\", \"url\": \"https://www.bankrate.com/rss/\", \"lob_tags\": [\"retail\"] },\n  { \"name\": \"NerdWallet Banking\", \"url\": \"https://www.nerdwallet.com/blog/banking/rss/\", \"lob_tags\": [\"retail\"] },\n  { \"name\": \"Credit Union Times\", \"url\": \"https://www.cutimes.com/rss/all.xml\", \"lob_tags\": [\"retail\"] },\n  { \"name\": \"Digital Banking Report\", \"url\": \"https://thefinancialbrand.com/digital-banking/feed/\", \"lob_tags\": [\"retail\", \"cross_cutting\"] },\n  { \"name\": \"Wealth Management Magazine\", \"url\": \"https://www.wealthmanagement.com/rss.xml\", \"lob_tags\": [\"wealth\"] },\n  { \"name\": \"Financial Advisor Magazine\", \"url\": \"https://www.fa-mag.com/rss/all.xml\", \"lob_tags\": [\"wealth\"] },\n  { \"name\": \"Advisor Perspectives\", \"url\": \"https://www.advisorperspectives.com/rss.xml\", \"lob_tags\": [\"wealth\"] },\n  { \"name\": \"InvestmentNews\", \"url\": \"https://www.investmentnews.com/feeds/news\", \"lob_tags\": [\"wealth\"] },\n  { \"name\": \"ThinkAdvisor\", \"url\": \"https://www.thinkadvisor.com/rss/\", \"lob_tags\": [\"wealth\"] },\n  { \"name\": \"CX Network\", \"url\": \"https://www.cxnetwork.com/rss/\", \"lob_tags\": [\"digital_assist\"] },\n  { \"name\": \"CCW Digital\", \"url\": \"https://www.customercontactweekdigital.com/rss/\", \"lob_tags\": [\"digital_assist\"] },\n  { \"name\": \"Zendesk Blog\", \"url\": \"https://blog.zendesk.com/feed/\", \"lob_tags\": [\"digital_assist\"] },\n  { \"name\": \"Reuters Banking\", \"url\": \"https://www.reuters.com/arc/outboundfeeds/rss/category/banking/?outputType=xml\", \"lob_tags\": [\"cross_cutting\"] },\n  { \"name\": \"Federal Reserve Monetary Press\", \"url\": \"https://www.federalreserve.gov/feeds/press_monetary.xml\", \"lob_tags\": [\"cross_cutting\"] },\n  { \"name\": \"Federal Reserve Banking Regulation Press\", \"url\": \"https://www.federalreserve.gov/feeds/press_bcreg.xml\", \"lob_tags\": [\"cross_cutting\"] },\n  { \"name\": \"OCC News Releases\", \"url\": \"https://www.occ.gov/rss/news-releases.xml\", \"lob_tags\": [\"cross_cutting\"] },\n  { \"name\": \"FDIC News\", \"url\": \"https://www.fdic.gov/rss/news.xml\", \"lob_tags\": [\"cross_cutting\"] },\n  { \"name\": \"European Central Bank Press\", \"url\": \"https://www.ecb.europa.eu/rss/press.xml\", \"lob_tags\": [\"cross_cutting\"] }\n];\n// Keep this array in sync with newsletter/data/rss-sources.json.\nreturn sources.map((s) => ({ json: s }));"
+      },
+      "id": "00000000-0000-0000-0000-000000000010",
+      "name": "Load RSS Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1728,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000011",
+      "name": "RSS Read",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1504,
+        96
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "tableId": "failed_rss",
+        "dataToSend": "autoMapInputData"
+      },
+      "id": "00000000-0000-0000-0000-000000000012",
+      "name": "Record RSS Failures",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1280,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;\nconst items = $input.all();\nconst out = [];\nfor (const item of items) {\n  const a = item.json;\n  const publishedMs = a.isoDate\n    ? new Date(a.isoDate).getTime()\n    : (a.pubDate ? new Date(a.pubDate).getTime() : 0);\n  if (!publishedMs || publishedMs < sevenDaysAgo) continue;\n\n  out.push({\n    json: {\n      source_type: 'rss',\n      source_name: a.creator || a.sourceName || 'RSS',\n      title: a.title || '',\n      link: a.link || '',\n      published_date: a.pubDate || a.isoDate || '',\n      content: (a.contentSnippet || a.content || '').toString(),\n      lob_tags: [],\n      is_customer_news: false,\n      is_competitive: false,\n      competitor_name: '',\n      ai_research: false\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "00000000-0000-0000-0000-000000000013",
+      "name": "Normalize RSS Item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const subreddits = [\n  { \"name\": \"banking\" }, { \"name\": \"FinancialCareers\" }, { \"name\": \"callcenter\" },\n  { \"name\": \"CustomerService\" }, { \"name\": \"talesfromcallcenters\" }, { \"name\": \"personalfinance\" },\n  { \"name\": \"CreditCards\" }, { \"name\": \"CreditUnions\" }, { \"name\": \"fintech\" },\n  { \"name\": \"povertyfinance\" }, { \"name\": \"Mortgages\" }, { \"name\": \"smallbusiness\" },\n  { \"name\": \"UKPersonalFinance\" }, { \"name\": \"Scams\" }, { \"name\": \"PersonalFinanceCanada\" },\n  { \"name\": \"AusFinance\" }\n];\n// Keep in sync with newsletter/data/reddit-sources.json.\n// No Reddit API app / OAuth needed: this hits Reddit's public per-subreddit\n// RSS feed (new listing, chronological) the same way the RSS Read node hits\n// any other feed. Self-service Reddit API app creation closed Nov 2025, so\n// this is also the practical path unless you already hold a pre-Nov-2025 app.\nreturn subreddits.map((s) => ({ json: { name: s.name, url: 'https://www.reddit.com/r/' + s.name + '/new/.rss?limit=100' } }));"
+      },
+      "id": "00000000-0000-0000-0000-000000000020",
+      "name": "Load Reddit Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1728,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000021",
+      "name": "Reddit RSS Read",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1504,
+        340
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "tableId": "failed_subreddit_retrievals",
+        "dataToSend": "autoMapInputData"
+      },
+      "id": "00000000-0000-0000-0000-000000000022",
+      "name": "Record Reddit Failures",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1280,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input items come from Reddit's public per-subreddit RSS feed (Atom under\n// the hood), parsed by the RSS Feed Read node into {title, link, pubDate,\n// isoDate, content, contentSnippet, guid, creator, ...}. No OAuth, no app.\nconst sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;\nconst items = $input.all();\nconst out = [];\nfor (const item of items) {\n  const p = item.json;\n  const publishedMs = p.isoDate ? new Date(p.isoDate).getTime() : (p.pubDate ? new Date(p.pubDate).getTime() : 0);\n  if (!publishedMs || publishedMs < sevenDaysAgo) continue;\n\n  // Reddit wraps every entry's content in a \"submitted by u/x to r/y ...\n  // [link] [N comments]\" boilerplate, followed by the actual selftext body\n  // for text posts (link posts have nothing else). Strip the boilerplate so\n  // the length check below reflects real discussion content, not wrapper text.\n  let text = (p.content || p['content:encoded'] || p.contentSnippet || '').toString();\n  text = text.replace(/<[^>]*>/g, ' ');\n  text = text.replace(/submitted by.*?to\\s*\\/?r\\/[\\w-]+/is, ' ');\n  text = text.replace(/\\[link\\]|\\[comments\\]|\\[\\d+\\s+comments?\\]/gi, ' ');\n  text = text.replace(/\\s+/g, ' ').trim();\n  if (text.length < 40) continue; // link-only post with no real discussion body\n\n  const link = p.link || '';\n  const subMatch = link.match(/\\/r\\/([^/]+)\\//i);\n\n  out.push({\n    json: {\n      source_type: 'reddit',\n      source_name: 'r/' + (subMatch ? subMatch[1] : ''),\n      title: p.title || '',\n      link,\n      published_date: p.isoDate || p.pubDate || '',\n      content: text,\n      lob_tags: ['community'],\n      is_customer_news: false,\n      is_competitive: false,\n      competitor_name: '',\n      ai_research: false,\n      reddit_post_id: p.guid || p.id || link\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "00000000-0000-0000-0000-000000000023",
+      "name": "Normalize Reddit Item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const banks = [\n  { name: \"Barclays\", query: \"Barclays\", aliases: [\"Barclays\"] },\n  { name: \"BBVA\", query: \"BBVA\", aliases: [\"BBVA\"] },\n  { name: \"HSBC\", query: \"HSBC\", aliases: [\"HSBC\"] },\n  { name: \"Santander\", query: \"Santander\", aliases: [\"Santander\"] },\n  { name: \"Deutsche Bank\", query: \"Deutsche Bank\", aliases: [\"Deutsche Bank\"] },\n  { name: \"BNP Paribas\", query: \"BNP Paribas\", aliases: [\"BNP Paribas\"] },\n  { name: \"Société Générale\", query: \"Société Générale\", aliases: [\"Societe Generale\",\"Société Générale\"] },\n  { name: \"Standard Chartered\", query: \"Standard Chartered\", aliases: [\"Standard Chartered\"] },\n  { name: \"Lloyds Banking Group\", query: \"Lloyds Banking Group\", aliases: [\"Lloyds Banking Group\",\"Lloyds Bank\"] },\n  { name: \"Natwest Group\", query: \"NatWest\", aliases: [\"NatWest\"] },\n  { name: \"Citibank\", query: \"Citibank\", aliases: [\"Citi\",\"Citigroup\",\"Citibank\"] },\n  { name: \"RBC\", query: \"RBC\", aliases: [\"RBC\",\"Royal Bank of Canada\"] },\n  { name: \"National Bank of Canada\", query: \"National Bank of Canada\", aliases: [\"National Bank of Canada\"] },\n  { name: \"Goldman Sachs\", query: \"Goldman Sachs\", aliases: [\"Goldman Sachs\"] },\n  { name: \"UBS\", query: \"UBS\", aliases: [\"UBS\"] },\n  { name: \"Credit Suisse\", query: \"Credit Suisse\", aliases: [\"Credit Suisse\"] },\n  { name: \"Danske Bank\", query: \"Danske Bank\", aliases: [\"Danske Bank\"] },\n  { name: \"ABN Amro Bank\", query: \"ABN AMRO\", aliases: [\"ABN AMRO\"] },\n  { name: \"Raiffeisen Bank International\", query: \"Raiffeisen Bank International\", aliases: [\"Raiffeisen Bank International\"] },\n  { name: \"Firstrand Group\", query: \"FirstRand\", aliases: [\"FirstRand\"] },\n  { name: \"Standard Bank Group\", query: \"Standard Bank\", aliases: [\"Standard Bank\"] },\n  { name: \"HDFC Bank\", query: \"HDFC Bank\", aliases: [\"HDFC Bank\"] },\n  { name: \"IDFC First Bank\", query: \"IDFC First Bank\", aliases: [\"IDFC First Bank\",\"IDFC FIRST\"] },\n  { name: \"BDO Unibank\", query: \"BDO Unibank\", aliases: [\"BDO Unibank\"] },\n  { name: \"Techcombank\", query: \"Techcombank\", aliases: [\"Techcombank\"] },\n  { name: \"Navy Federal Credit Union\", query: \"Navy Federal\", aliases: [\"Navy Federal\"] },\n  { name: \"BECU\", query: \"BECU\", aliases: [\"BECU\"] },\n  { name: \"Citizens Bank\", query: \"Citizens Bank\", aliases: [\"Citizens Bank\",\"Citizens Financial Group\"] },\n  { name: \"KeyBank\", query: \"KeyBank\", aliases: [\"KeyBank\",\"KeyCorp\"] },\n  { name: \"Westpac\", query: \"Westpac\", aliases: [\"Westpac\"] },\n  { name: \"eToro\", query: \"eToro\", aliases: [\"eToro\"] }\n];\n// Tier A only: each bank gets its own Google News query. The FULL roster\n// (Tier A + Tier B) lives in newsletter/data/customer-banks.json and is\n// mirrored inside 'Match PR Newswire to Customers', which cannot read this\n// node (sibling branch, not an ancestor).\nreturn banks.map((b) => ({ json: b }));\n"
+      },
+      "id": "00000000-0000-0000-0000-000000000030",
+      "name": "Load Customer Banks (Tier A)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1728,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://news.google.com/rss/search?q=%22{{ encodeURIComponent($json.name) }}%22&hl=en&gl=US&ceid=US:en",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000031",
+      "name": "Customer Google News",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1504,
+        600
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;\nconst banks = $('Load Customer Banks (Tier A)').all().map((i) => i.json);\nconst candidates = banks\n  .flatMap((b) => (b.aliases || [b.name]).map((alias) => ({ alias, name: b.name })))\n  .sort((x, y) => y.alias.length - x.alias.length);\n\nfunction escapeRe(s) {\n  return s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n}\nfunction parentIndex(item) {\n  const p = item.pairedItem;\n  if (p === undefined || p === null) return -1;\n  if (typeof p === 'number') return p;\n  if (Array.isArray(p)) return p.length && typeof p[0].item === 'number' ? p[0].item : -1;\n  return typeof p.item === 'number' ? p.item : -1;\n}\nfunction matchIn(text, candidates) {\n  for (const c of candidates) {\n    if (new RegExp('\\\\b' + escapeRe(c.alias) + '\\\\b', 'i').test(text)) return c;\n  }\n  return null;\n}\n\nconst out = [];\nfor (const item of $input.all()) {\n  const a = item.json;\n  const d = new Date(a.pubDate || a.isoDate || 0).getTime();\n  if (!d || d < sevenDaysAgo) continue;\n  const text = (a.title || '') + ' ' + (a.contentSnippet || a.content || '');\n  const hit = matchIn(text, candidates);\n  let name = hit ? hit.name : '';\n  if (!name) {\n    const idx = parentIndex(item);\n    if (idx >= 0 && banks[idx]) name = banks[idx].name;\n  }\n  if (!name) continue;\n  out.push({\n    json: {\n      source_type: 'customer_news',\n      source_name: a.creator || 'Google News',\n      title: a.title || '',\n      link: a.link || '',\n      published_date: a.pubDate || a.isoDate || '',\n      content: (a.contentSnippet || a.content || '').toString(),\n      lob_tags: [],\n      is_customer_news: true,\n      customer_name: name,\n      is_competitive: false,\n      competitor_name: '',\n      ai_research: false\n    }\n  });\n}\nreturn out;\n"
+      },
+      "id": "00000000-0000-0000-0000-000000000032",
+      "name": "Normalize Customer Item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.prnewswire.com/rss/news-releases-list.rss",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000033",
+      "name": "PR Newswire Feed",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1504,
+        760
+      ],
+      "onError": "continueErrorOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Self-contained: this node is a sibling of 'Load Customer Banks (Tier A)',\n// not a descendant, so it cannot use $('Load Customer Banks (Tier A)').\n// Full Tier A + Tier B roster — keep in sync with\n// newsletter/data/customer-banks.json.\nconst banks = [\n  { name: \"Barclays\", aliases: [\"Barclays\"] },\n  { name: \"BBVA\", aliases: [\"BBVA\"] },\n  { name: \"HSBC\", aliases: [\"HSBC\"] },\n  { name: \"Santander\", aliases: [\"Santander\"] },\n  { name: \"Deutsche Bank\", aliases: [\"Deutsche Bank\"] },\n  { name: \"BNP Paribas\", aliases: [\"BNP Paribas\"] },\n  { name: \"Société Générale\", aliases: [\"Societe Generale\",\"Société Générale\"] },\n  { name: \"Standard Chartered\", aliases: [\"Standard Chartered\"] },\n  { name: \"Lloyds Banking Group\", aliases: [\"Lloyds Banking Group\",\"Lloyds Bank\"] },\n  { name: \"Natwest Group\", aliases: [\"NatWest\"] },\n  { name: \"Citibank\", aliases: [\"Citi\",\"Citigroup\",\"Citibank\"] },\n  { name: \"RBC\", aliases: [\"RBC\",\"Royal Bank of Canada\"] },\n  { name: \"National Bank of Canada\", aliases: [\"National Bank of Canada\"] },\n  { name: \"Goldman Sachs\", aliases: [\"Goldman Sachs\"] },\n  { name: \"UBS\", aliases: [\"UBS\"] },\n  { name: \"Credit Suisse\", aliases: [\"Credit Suisse\"] },\n  { name: \"Danske Bank\", aliases: [\"Danske Bank\"] },\n  { name: \"ABN Amro Bank\", aliases: [\"ABN AMRO\"] },\n  { name: \"Raiffeisen Bank International\", aliases: [\"Raiffeisen Bank International\"] },\n  { name: \"Firstrand Group\", aliases: [\"FirstRand\"] },\n  { name: \"Standard Bank Group\", aliases: [\"Standard Bank\"] },\n  { name: \"HDFC Bank\", aliases: [\"HDFC Bank\"] },\n  { name: \"IDFC First Bank\", aliases: [\"IDFC First Bank\",\"IDFC FIRST\"] },\n  { name: \"BDO Unibank\", aliases: [\"BDO Unibank\"] },\n  { name: \"Techcombank\", aliases: [\"Techcombank\"] },\n  { name: \"Navy Federal Credit Union\", aliases: [\"Navy Federal\"] },\n  { name: \"BECU\", aliases: [\"BECU\"] },\n  { name: \"Citizens Bank\", aliases: [\"Citizens Bank\",\"Citizens Financial Group\"] },\n  { name: \"KeyBank\", aliases: [\"KeyBank\",\"KeyCorp\"] },\n  { name: \"Westpac\", aliases: [\"Westpac\"] },\n  { name: \"eToro\", aliases: [\"eToro\"] },\n  { name: \"AB Bank\", aliases: [\"AB Bank\"] },\n  { name: \"Advanzia Bank\", aliases: [\"Advanzia\"] },\n  { name: \"AIB Group\", aliases: [\"AIB\",\"Allied Irish Banks\"] },\n  { name: \"Alliant Credit Union\", aliases: [\"Alliant Credit Union\"] },\n  { name: \"Arbuthnot Latham\", aliases: [\"Arbuthnot Latham\",\"Arbuthnot\"] },\n  { name: \"Banco Caja Social\", aliases: [\"Banco Caja Social\"] },\n  { name: \"Banco De La Nación Del Peru\", aliases: [\"Banco de la Nación\"] },\n  { name: \"Banco Nacional de Costa Rica\", aliases: [\"Banco Nacional de Costa Rica\",\"BNCR\"] },\n  { name: \"Banco Pichincha\", aliases: [\"Banco Pichincha\",\"Pichincha\"] },\n  { name: \"Banco Security\", aliases: [\"Banco Security\"] },\n  { name: \"Banesco Dominican Republic\", aliases: [\"Banesco\"] },\n  { name: \"Banque Internationale Arabe de Tunisie\", aliases: [\"Banque Internationale Arabe de Tunisie\",\"BIAT\"] },\n  { name: \"Banque Saudi Fransi\", aliases: [\"Banque Saudi Fransi\",\"Saudi Fransi\"] },\n  { name: \"Bineo\", aliases: [\"Bineo\"] },\n  { name: \"Blue Federal Credit Union\", aliases: [\"Blue Federal Credit Union\"] },\n  { name: \"BKS Bank\", aliases: [\"BKS Bank\"] },\n  { name: \"BRD Groupe Société Générale\", aliases: [\"BRD Groupe\",\"BRD Bank\"] },\n  { name: \"Bremer Bank\", aliases: [\"Bremer Bank\",\"Bremer Financial\"] },\n  { name: \"Cembra Money Bank\", aliases: [\"Cembra\"] },\n  { name: \"Central 1\", aliases: [\"Central 1\"] },\n  { name: \"CheBanca\", aliases: [\"CheBanca\",\"Mediobanca Premier\"] },\n  { name: \"Chinabank\", aliases: [\"Chinabank\",\"China Banking Corporation\"] },\n  { name: \"CIH Bank\", aliases: [\"CIH Bank\"] },\n  { name: \"CIMB Singapore\", aliases: [\"CIMB\"] },\n  { name: \"Citibanamex\", aliases: [\"Citibanamex\",\"Banamex\"] },\n  { name: \"City National Bank\", aliases: [\"City National Bank\"] },\n  { name: \"Coutts\", aliases: [\"Coutts\"] },\n  { name: \"Deutsche Pfandbriefbank\", aliases: [\"Deutsche Pfandbriefbank\"] },\n  { name: \"Discovery Bank\", aliases: [\"Discovery Bank\"] },\n  { name: \"DSK Bank\", aliases: [\"DSK Bank\"] },\n  { name: \"East West Bank\", aliases: [\"East West Bank\",\"East West Bancorp\"] },\n  { name: \"EastWest Bank Philippines\", aliases: [\"EastWest Bank\",\"EastWest Banking Corporation\"] },\n  { name: \"ENT Credit Union\", aliases: [\"Ent Credit Union\"] },\n  { name: \"Everbank\", aliases: [\"EverBank\"] },\n  { name: \"Federal Home Loan Bank Boston\", aliases: [\"Federal Home Loan Bank of Boston\",\"FHLBank Boston\"] },\n  { name: \"First Bank\", aliases: [\"First Bancorp\"] },\n  { name: \"FNB Ghana\", aliases: [\"FNB Ghana\"] },\n  { name: \"Furness Building Society\", aliases: [\"Furness Building Society\"] },\n  { name: \"Greater Bank\", aliases: [\"Greater Bank\"] },\n  { name: \"I&M Bank\", aliases: [\"I&M Bank\"] },\n  { name: \"Ikano Bank\", aliases: [\"Ikano Bank\"] },\n  { name: \"Judo Bank\", aliases: [\"Judo Bank\"] },\n  { name: \"Kapitus\", aliases: [\"Kapitus\"] },\n  { name: \"Masraf Al Rayan\", aliases: [\"Masraf Al Rayan\"] },\n  { name: \"Mauritius Commercial Bank\", aliases: [\"Mauritius Commercial Bank\",\"MCB Group\"] },\n  { name: \"Metrobank\", aliases: [\"Metrobank\"] },\n  { name: \"MyState Bank\", aliases: [\"MyState\"] },\n  { name: \"National Bank of Bahrain\", aliases: [\"National Bank of Bahrain\"] },\n  { name: \"NLB Group\", aliases: [\"NLB Group\",\"Nova Ljubljanska Banka\"] },\n  { name: \"Orient Commercial Joint Stock Bank\", aliases: [\"Orient Commercial Joint Stock Bank\",\"OCB Bank\"] },\n  { name: \"OTP banka\", aliases: [\"OTP banka\",\"SKB Banka\"] },\n  { name: \"People First Bank\", aliases: [\"People First Bank\"] },\n  { name: \"Pictet Group\", aliases: [\"Pictet\"] },\n  { name: \"PostFinance\", aliases: [\"PostFinance\"] },\n  { name: \"Sandy Spring Bank\", aliases: [\"Sandy Spring\"] },\n  { name: \"Saudi National Bank\", aliases: [\"Saudi National Bank\"] },\n  { name: \"SchoolsFirst Federal Credit Union\", aliases: [\"SchoolsFirst\"] },\n  { name: \"SECU Maryland\", aliases: [\"SECU Maryland\",\"State Employees Credit Union of Maryland\"] },\n  { name: \"SICO Bank\", aliases: [\"SICO Bank\",\"SICO BSC\"] },\n  { name: \"Societe Generale de Banque au Liban\", aliases: [\"Societe Generale de Banque au Liban\",\"SGBL\"] },\n  { name: \"Tirana Bank\", aliases: [\"Tirana Bank\"] },\n  { name: \"TPBank\", aliases: [\"TPBank\",\"Tien Phong Bank\"] },\n  { name: \"Umnia Bank\", aliases: [\"Umnia Bank\"] },\n  { name: \"Union Bank of the Philippines\", aliases: [\"Union Bank of the Philippines\",\"UnionBank of the Philippines\"] },\n  { name: \"University Federal Credit Union\", aliases: [\"University Federal Credit Union\",\"UFCU\"] },\n  { name: \"Vantage Bank Texas\", aliases: [\"Vantage Bank\"] },\n  { name: \"Vietnam Maritime Commercial Joint Stock Bank\", aliases: [\"Vietnam Maritime Commercial Joint Stock Bank\",\"MSB Vietnam\"] },\n  { name: \"Washington State Employee Credit Union\", aliases: [\"WSECU\",\"Washington State Employees Credit Union\"] },\n  { name: \"Weatherbys Bank\", aliases: [\"Weatherbys\"] },\n  { name: \"Western Union\", aliases: [\"Western Union\"] },\n  { name: \"Westerra Credit Union\", aliases: [\"Westerra\"] },\n  { name: \"Wildfire Credit Union\", aliases: [\"Wildfire Credit Union\"] },\n  { name: \"Wings Financial Credit Union\", aliases: [\"Wings Financial\",\"Wings Credit Union\"] }\n];\n\nconst sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;\nconst candidates = banks\n  .flatMap((b) => (b.aliases || [b.name]).map((alias) => ({ alias, name: b.name })))\n  .sort((x, y) => y.alias.length - x.alias.length);\n\nfunction escapeRe(s) {\n  return s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n}\nfunction parentIndex(item) {\n  const p = item.pairedItem;\n  if (p === undefined || p === null) return -1;\n  if (typeof p === 'number') return p;\n  if (Array.isArray(p)) return p.length && typeof p[0].item === 'number' ? p[0].item : -1;\n  return typeof p.item === 'number' ? p.item : -1;\n}\nfunction matchIn(text, candidates) {\n  for (const c of candidates) {\n    if (new RegExp('\\\\b' + escapeRe(c.alias) + '\\\\b', 'i').test(text)) return c;\n  }\n  return null;\n}\n\nconst out = [];\nfor (const item of $input.all()) {\n  const a = item.json;\n  const d = new Date(a.pubDate || a.isoDate || 0).getTime();\n  if (!d || d < sevenDaysAgo) continue;\n  const text = (a.title || '') + ' ' + (a.contentSnippet || a.content || '');\n  const hit = matchIn(text, candidates);\n  if (!hit) continue;\n  out.push({\n    json: {\n      source_type: 'customer_news',\n      source_name: 'PR Newswire',\n      title: a.title || '',\n      link: a.link || '',\n      published_date: a.pubDate || a.isoDate || '',\n      content: (a.contentSnippet || a.content || '').toString(),\n      lob_tags: [],\n      is_customer_news: true,\n      customer_name: hit.name,\n      is_competitive: false,\n      competitor_name: '',\n      ai_research: false\n    }\n  });\n}\nreturn out;\n"
+      },
+      "id": "00000000-0000-0000-0000-000000000034",
+      "name": "Match PR Newswire to Customers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const vendors = [\n  { name: 'Temenos', aliases: [\"Temenos\"], query: 'Temenos banking platform', lob_tags: ['cross_cutting', 'wealth', 'retail'] },\n  { name: 'Finastra', aliases: [\"Finastra\"], query: 'Finastra digital banking', lob_tags: ['cross_cutting', 'sme_commercial'] },\n  { name: 'FIS', aliases: [\"FIS\"], query: 'FIS Global banking technology', lob_tags: ['cross_cutting', 'wealth'] },\n  { name: 'Fiserv', aliases: [\"Fiserv\",\"FISV\"], query: 'Fiserv banking technology', lob_tags: ['cross_cutting', 'retail'] },\n  { name: 'Oracle Financial Services', aliases: [\"Oracle Financial Services\",\"Oracle Banking\",\"FLEXCUBE\"], query: 'Oracle Financial Services banking platform', lob_tags: ['cross_cutting'] },\n  { name: 'Thought Machine', aliases: [\"Thought Machine\",\"Vault Core\"], query: 'Thought Machine Vault core banking', lob_tags: ['cross_cutting'] },\n  { name: 'Mambu', aliases: [\"Mambu\"], query: 'Mambu banking platform', lob_tags: ['cross_cutting'] },\n  { name: 'nCino', aliases: [\"nCino\"], query: 'nCino bank commercial lending', lob_tags: ['sme_commercial'] },\n  { name: 'Q2 Holdings', aliases: [\"Q2 Holdings\",\"QTWO\"], query: 'Q2 Holdings digital banking', lob_tags: ['sme_commercial', 'retail'] },\n  { name: 'Jack Henry', aliases: [\"Jack Henry\",\"Banno\"], query: 'Jack Henry Banno banking', lob_tags: ['sme_commercial', 'retail'] },\n  { name: 'Avaloq', aliases: [\"Avaloq\"], query: 'Avaloq wealth private banking', lob_tags: ['wealth'] },\n  { name: 'Salesforce Financial Services Cloud', aliases: [\"Financial Services Cloud\"], query: '\"Financial Services Cloud\" Salesforce bank', lob_tags: ['wealth', 'digital_assist'] },\n  { name: 'SEI Wealth Platform', aliases: [\"SEI Wealth Platform\",\"SEI Investments\",\"SEIC\"], query: 'SEI Wealth Platform advisor', lob_tags: ['wealth'] },\n  { name: 'Envestnet Tamarac', aliases: [\"Envestnet\",\"Tamarac\"], query: 'Envestnet Tamarac advisor platform', lob_tags: ['wealth'] },\n  { name: 'Addepar', aliases: [\"Addepar\"], query: 'Addepar wealth platform', lob_tags: ['wealth'] },\n  { name: 'Morningstar', aliases: [\"Morningstar\"], query: 'Morningstar advisor platform', lob_tags: ['wealth'] },\n  { name: 'Alkami', aliases: [\"Alkami\",\"ALKT\"], query: 'Alkami digital banking', lob_tags: ['retail'] },\n  { name: 'NCR Voyix', aliases: [\"NCR Voyix\",\"Digital Insight\"], query: 'NCR Voyix Digital Insight banking', lob_tags: ['retail'] },\n  { name: 'Narmi', aliases: [\"Narmi\"], query: 'Narmi digital banking', lob_tags: ['retail'] },\n  { name: 'Nymbus', aliases: [\"Nymbus\"], query: 'Nymbus digital banking', lob_tags: ['retail'] },\n  { name: 'Bankjoy', aliases: [\"Bankjoy\"], query: 'Bankjoy digital banking credit union', lob_tags: ['retail'] },\n  { name: 'Lumin Digital', aliases: [\"Lumin Digital\"], query: 'Lumin Digital banking', lob_tags: ['retail'] },\n  { name: 'NICE', aliases: [\"NICE CXone\",\"CXone\",\"NICE Ltd\"], query: 'NICE CXone contact center AI banking', lob_tags: ['digital_assist'] },\n  { name: 'Genesys', aliases: [\"Genesys\"], query: 'Genesys contact center AI banking', lob_tags: ['digital_assist'] },\n  { name: 'Verint', aliases: [\"Verint\"], query: 'Verint contact center AI banking', lob_tags: ['digital_assist'] },\n  { name: 'Glia', aliases: [\"Glia\"], query: 'Glia digital customer service banking', lob_tags: ['digital_assist'] },\n  { name: 'Kore.ai', aliases: [\"Kore.ai\"], query: 'Kore.ai banking AI agent', lob_tags: ['digital_assist'] },\n  { name: 'Sierra', aliases: [\"Sierra AI\",\"Sierra.ai\"], query: 'Sierra AI customer service agent', lob_tags: ['digital_assist'] },\n  { name: 'Decagon', aliases: [\"Decagon\"], query: 'Decagon AI customer service agent', lob_tags: ['digital_assist'] }\n];\n// Keep in sync with newsletter/data/competitor-watch.json. 'aliases' is what\n// 'Normalize Competitor Item' matches against — never add a bare acronym that\n// is also an English word or a common ticker prefix (no bare 'Q2', 'NICE',\n// 'Sierra', 'SEI'). Kasisto is deliberately excluded: acquired BY Backbase in\n// June 2026.\nreturn vendors.map((v) => ({ json: v }));\n"
+      },
+      "id": "00000000-0000-0000-0000-000000000040",
+      "name": "Load Competitor Watchlist",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1728,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://news.google.com/rss/search?q={{ encodeURIComponent($json.query) }}&hl=en&gl=US&ceid=US:en",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000041",
+      "name": "Competitor Google News",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1504,
+        900
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;\nconst vendors = $('Load Competitor Watchlist').all().map((i) => i.json);\nconst candidates = vendors\n  .flatMap((v) => (v.aliases || [v.name]).map((alias) => ({ alias, vendor: v })))\n  .sort((x, y) => y.alias.length - x.alias.length);\n\nfunction escapeRe(s) {\n  return s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n}\nfunction parentIndex(item) {\n  const p = item.pairedItem;\n  if (p === undefined || p === null) return -1;\n  if (typeof p === 'number') return p;\n  if (Array.isArray(p)) return p.length && typeof p[0].item === 'number' ? p[0].item : -1;\n  return typeof p.item === 'number' ? p.item : -1;\n}\n\nconst out = [];\nfor (const item of $input.all()) {\n  const a = item.json;\n  const d = new Date(a.pubDate || a.isoDate || 0).getTime();\n  if (!d || d < sevenDaysAgo) continue;\n  const text = (a.title || '') + ' ' + (a.contentSnippet || a.content || '');\n\n  // Name the vendor ONLY when one of its aliases actually appears in the item.\n  // The Google News queries here are multi-word and unquoted, so they return\n  // plenty of loosely-related stories; guessing the vendor from the query that\n  // surfaced the item is how every competitor ended up labelled 'Temenos'.\n  let vendor = null;\n  for (const c of candidates) {\n    if (new RegExp('\\\\b' + escapeRe(c.alias) + '\\\\b', 'i').test(text)) {\n      vendor = c.vendor;\n      break;\n    }\n  }\n\n  // No alias hit: still pass it to triage (the query's LOB is a useful hint)\n  // but leave competitor_name empty so Phase 1 decides rather than inheriting\n  // a wrong name.\n  const idx = parentIndex(item);\n  const queried = idx >= 0 && vendors[idx] ? vendors[idx] : null;\n\n  out.push({\n    json: {\n      source_type: 'competitor',\n      source_name: a.creator || 'Google News',\n      title: a.title || '',\n      link: a.link || '',\n      published_date: a.pubDate || a.isoDate || '',\n      content: (a.contentSnippet || a.content || '').toString(),\n      lob_tags: (vendor || queried || {}).lob_tags || [],\n      is_customer_news: false,\n      is_competitive: Boolean(vendor),\n      competitor_name: vendor ? vendor.name : '',\n      surfaced_by: queried ? queried.name : '',\n      ai_research: false\n    }\n  });\n}\nreturn out;\n"
+      },
+      "id": "00000000-0000-0000-0000-000000000042",
+      "name": "Normalize Competitor Item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sources = [\n  { name: 'MIT Technology Review — AI', type: 'rss', url: 'https://www.technologyreview.com/topic/artificial-intelligence/feed' },\n  { name: 'VentureBeat — AI', type: 'rss', url: 'https://venturebeat.com/category/ai/feed/' },\n  { name: 'The Verge — AI', type: 'rss', url: 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml' },\n  { name: 'Ars Technica — AI', type: 'rss', url: 'https://arstechnica.com/ai/feed/' },\n  { name: 'Anthropic / Claude', type: 'google_news', query: 'Anthropic Claude AI agent' },\n  { name: 'OpenAI', type: 'google_news', query: 'OpenAI GPT agent' },\n  { name: 'Google DeepMind / Gemini', type: 'google_news', query: 'Google DeepMind Gemini AI agent' },\n  { name: 'Agentic AI in banking', type: 'google_news', query: 'agentic AI banking financial services' },\n  { name: 'AI governance / model risk in banking', type: 'google_news', query: 'AI governance model risk banking regulation' },\n  { name: 'EU AI Act financial services', type: 'google_news', query: 'EU AI Act financial services banking' },\n  { name: 'Model Context Protocol', type: 'google_news', query: '\"Model Context Protocol\" AI agents' },\n  { name: 'Evident AI Index', type: 'google_news', query: 'Evident AI Index banking' }\n];\n// Keep in sync with newsletter/data/ai-research-sources.json.\nreturn sources.map((s) => ({\n  json: {\n    name: s.name,\n    url: s.type === 'rss' ? s.url : ('https://news.google.com/rss/search?q=' + encodeURIComponent(s.query) + '&hl=en&gl=US&ceid=US:en')\n  }\n}));"
+      },
+      "id": "00000000-0000-0000-0000-000000000050",
+      "name": "Load AI Research Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1728,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000051",
+      "name": "AI Research Feed Read",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1504,
+        1140
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;\nconst sources = $('Load AI Research Sources').all().map((i) => i.json);\nconst hostMap = [\n  ['technologyreview.com', 'MIT Technology Review — AI'],\n  ['venturebeat.com', 'VentureBeat — AI'],\n  ['theverge.com', 'The Verge — AI'],\n  ['arstechnica.com', 'Ars Technica — AI']\n];\n\nfunction parentIndex(item) {\n  const p = item.pairedItem;\n  if (p === undefined || p === null) return -1;\n  if (typeof p === 'number') return p;\n  if (Array.isArray(p)) return p.length && typeof p[0].item === 'number' ? p[0].item : -1;\n  return typeof p.item === 'number' ? p.item : -1;\n}\nfunction sourceFor(item, link) {\n  let host = '';\n  try {\n    host = new URL(link).hostname.replace(/^www\\./, '');\n  } catch (e) {\n    host = '';\n  }\n  if (!host) return 'AI Research';\n  if (host.endsWith('news.google.com')) {\n    const idx = parentIndex(item);\n    const label = idx >= 0 && sources[idx] ? sources[idx].name : '';\n    return label ? 'Google News — ' + label : 'Google News';\n  }\n  const hit = hostMap.find((h) => host.endsWith(h[0]));\n  return hit ? hit[1] : host;\n}\n\nconst out = [];\nfor (const item of $input.all()) {\n  const a = item.json;\n  const d = new Date(a.pubDate || a.isoDate || 0).getTime();\n  if (!d || d < sevenDaysAgo) continue;\n  out.push({\n    json: {\n      source_type: 'ai_research',\n      source_name: sourceFor(item, a.link || ''),\n      title: a.title || '',\n      link: a.link || '',\n      published_date: a.pubDate || a.isoDate || '',\n      content: (a.contentSnippet || a.content || '').toString(),\n      lob_tags: ['ai_research'],\n      is_customer_news: false,\n      is_competitive: false,\n      competitor_name: '',\n      ai_research: true\n    }\n  });\n}\nreturn out;\n"
+      },
+      "id": "00000000-0000-0000-0000-000000000052",
+      "name": "Normalize AI Research Item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 5
+      },
+      "id": "00000000-0000-0000-0000-000000000060",
+      "name": "Merge All Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -1056,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: \"Compute Canonical URL\" (Code, Run Once for All Items)\n// Input:  Merge All Sources\n//\n// Adds id / canonical_url / title_hash, and now also collapses duplicates\n// *within this run*. The Supabase lookup downstream only knows about previous\n// runs, so without this the same story arriving from Google News, PR Newswire\n// and an RSS feed reached the LLM three times.\n\nfunction canonicalize(url) {\n  if (!url) return '';\n  try {\n    const u = new URL(url);\n    const host = u.hostname.toLowerCase().replace(/^www\\./, '');\n    const dropParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'ref'];\n    const params = new URLSearchParams(u.search);\n    dropParams.forEach((p) => params.delete(p));\n    const qs = params.toString();\n    const path = u.pathname.replace(/\\/$/, '');\n    return host + path + (qs ? '?' + qs : '');\n  } catch (e) {\n    return url.toLowerCase().trim();\n  }\n}\n\nfunction titleHash(title) {\n  // Normalised title, minus the trailing \" - Publication Name\" that Google News\n  // appends, so syndicated copies of one story collapse onto one hash.\n  const norm = (title || '')\n    .replace(/\\s+[-–|]\\s+[^-–|]{2,40}$/, '')\n    .toLowerCase()\n    .replace(/[^a-z0-9]+/g, ' ')\n    .trim();\n  let h = 0;\n  for (let i = 0; i < norm.length; i++) {\n    h = (h * 31 + norm.charCodeAt(i)) | 0;\n  }\n  return 'h' + Math.abs(h).toString(36);\n}\n\n// A longer snippet and a non-aggregator host both suggest the better copy of a\n// story, so prefer those when two items collide.\nfunction score(a) {\n  const host = (a.link || '').toLowerCase();\n  const aggregator = /news\\.google\\.|prnewswire\\.|businesswire\\.|globenewswire\\./.test(host);\n  return (a.content || '').length + (aggregator ? 0 : 5000);\n}\n\nconst seenUrl = new Map();\nconst seenTitle = new Map();\n\nfor (const item of $input.all()) {\n  const a = item.json;\n  const canonical_url = canonicalize(a.link);\n  const title_hash = titleHash(a.title);\n  const record = { ...a, canonical_url, title_hash };\n\n  const urlKey = canonical_url || 'no-url:' + title_hash;\n  const existingByUrl = seenUrl.get(urlKey);\n  if (existingByUrl) {\n    if (score(record) > score(existingByUrl)) seenUrl.set(urlKey, record);\n    continue;\n  }\n\n  const existingByTitle = seenTitle.get(title_hash);\n  if (existingByTitle && title_hash !== 'h0') {\n    if (score(record) > score(existingByTitle)) {\n      seenUrl.delete(canonicalize(existingByTitle.link) || 'no-url:' + title_hash);\n      seenUrl.set(urlKey, record);\n      seenTitle.set(title_hash, record);\n    }\n    continue;\n  }\n\n  seenUrl.set(urlKey, record);\n  seenTitle.set(title_hash, record);\n}\n\nlet idCounter = 0;\nreturn Array.from(seenUrl.values()).map((a) => {\n  idCounter += 1;\n  return { json: { ...a, id: 'art-' + idCounter } };\n});\n"
+      },
+      "id": "00000000-0000-0000-0000-000000000061",
+      "name": "Compute Canonical URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -832,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst urls = [...new Set(items.map((i) => i.json.canonical_url).filter(Boolean))];\n\n// A single GET request with hundreds of URLs embedded in the 'in.(...)'\n// filter can exceed the request-line/header size limit in front of\n// Supabase ('header overflow' / 431). Chunk into batches small enough to\n// stay well under common 8KB header limits — Dedup Lookup auto-fires one\n// HTTP call per item below, and Filter New Only already aggregates across\n// however many items Dedup Lookup returns.\nconst CHUNK_SIZE = 40;\nconst chunks = [];\nfor (let i = 0; i < urls.length; i += CHUNK_SIZE) {\n  chunks.push(urls.slice(i, i + CHUNK_SIZE));\n}\n\nreturn chunks.map((chunk) => {\n  const encoded = chunk.map((u) => '\"' + u.replace(/\"/g, '') + '\"').join(',');\n  return { json: { urls_filter: encoded, count: chunk.length } };\n});"
+      },
+      "id": "00000000-0000-0000-0000-000000000062",
+      "name": "Build Dedup Lookup Filter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/seen_articles?select=canonical_url&canonical_url=in.({{ $json.urls_filter }})",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000063",
+      "name": "Dedup Lookup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -384,
+        500
+      ],
+      "alwaysOutputData": true,
+      "notes": "alwaysOutputData is required: on a fresh seen_articles table every chunk legitimately returns [], and n8n halts a branch on zero items — Filter New Only would never run. Credential: the NATIVE Supabase credential (Host + Service Role Secret) — same one attached to the Record ... Supabase nodes — selected via Authentication > Predefined Credential Type > Supabase API. This automatically sends both the apikey and Authorization: Bearer headers Supabase's gateway requires; a plain HTTP Header Auth credential only sends one header and commonly 401s with 'No API key found in request'. Env var SUPABASE_URL must still be set for the URL itself (n8n Settings > Environment, or your host's env config; if $env access is blocked, replace {{ $env.SUPABASE_URL }} with the literal project URL)."
+    },
+    {
+      "parameters": {
+        "jsCode": "const seen = new Set($input.first().json && Array.isArray($input.first().json) ? [] : []);\n// Dedup Lookup returns an array body; n8n wraps each array element as its own item.\nconst seenUrls = new Set($input.all().map((i) => i.json.canonical_url).filter(Boolean));\nconst pool = $('Compute Canonical URL').all().map((i) => i.json);\nconst fresh = pool.filter((a) => !seenUrls.has(a.canonical_url));\nreturn fresh.map((a) => ({ json: a }));"
+      },
+      "id": "00000000-0000-0000-0000-000000000064",
+      "name": "Filter New Only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/seen_articles",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=ignore-duplicates"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($input.all().map(i => ({ canonical_url: i.json.canonical_url, title_hash: i.json.title_hash, source_type: i.json.source_type, source_name: i.json.source_name, run_id: $('Initialize Run').first().json.run_id }))) }}",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000065",
+      "name": "Mark Seen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        64,
+        500
+      ],
+      "alwaysOutputData": true,
+      "notes": "Uses the same native Supabase credential as Dedup Lookup (Predefined Credential Type > Supabase API — see its notes). This runs once for the whole batch — n8n batches all input items into a single execution here because the jsonBody expression references $input.all() rather than $json. alwaysOutputData is required because PostgREST returns 201 with an empty body unless asked for a representation, and zero items would halt the branch before Budget Gate. Budget Gate therefore reads the fresh-article list from Filter New Only, not from this node's response."
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('Compute Canonical URL').all().map(i => i.json);\n// Read the fresh list from Filter New Only, not from Mark Seen's response —\n// PostgREST returns an empty body on insert unless asked for a representation.\nconst freshUrls = new Set($('Filter New Only').all().map(i => i.json.canonical_url));\nconst pool = items.filter(a => freshUrls.has(a.canonical_url));\n\nconst totalChars = pool.reduce((sum, a) => sum + (a.title || '').length + (a.content || '').length, 0);\nconst estInputTokens = Math.ceil(totalChars / 4);\nconst run = $('Initialize Run').first().json;\nconst budget = run.budget.weekly_target_usd;\n\n// Very rough estimate assuming triage + extraction + synthesis roughly\n// triples the raw input token count once output and repeated context are\n// counted. Tune the divisor below against your actual run_costs history.\nconst estCostUsd = (estInputTokens * 3 / 1000000) * run.budget.main_model_input_per_m;\n\nlet mode = 'full';\nif (estCostUsd > budget * 1.5) mode = 'keyword_only';\nelse if (estCostUsd > budget) mode = 'triage_only';\n\nreturn [{\n  json: {\n    ...run,\n    mode,\n    article_count: pool.length,\n    estimated_cost_usd: Number(estCostUsd.toFixed(4))\n  }\n}];"
+      },
+      "id": "00000000-0000-0000-0000-000000000070",
+      "name": "Budget Gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "keyword_only",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000071",
+      "name": "If Mode Is Full Or Triage-Only",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        512,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keyword-only fallback: no LLM calls. Bucket by simple keyword match per\n// LOB so an edition still ships (degraded) rather than failing outright.\nconst pool = $('Filter New Only').all().map(i => i.json);\nconst keywords = {\n  sme_commercial: ['sme', 'small business', 'commercial bank', 'business banking', 'b2b payments'],\n  wealth: ['wealth', 'advisor', 'private bank', 'portfolio', 'investment'],\n  retail: ['retail bank', 'mortgage', 'credit card', 'consumer bank', 'neobank'],\n  digital_assist: ['contact center', 'contact centre', 'call center', 'agent desktop', 'csr', 'chatbot']\n};\nfunction bucket(tag) {\n  const words = keywords[tag];\n  return pool.filter(a => words.some(w => (a.title + ' ' + a.content).toLowerCase().includes(w)));\n}\nconst sections = {};\nfor (const tag of Object.keys(keywords)) {\n  const stories = bucket(tag).slice(0, 8).map(a => ({ title: a.title, date: a.published_date, source: a.source_name, link: a.link, insight: '(keyword-only mode — no AI analysis this week)' }));\n  sections[tag] = { lob: tag, summary: 'Budget exceeded this week — keyword-matched headlines only, no AI synthesis.', trend_direction: 'Neutral', key_themes: [], stories, employee_experience_note: '', strategic_questions: [] };\n}\nreturn [{ json: { mode: 'keyword_only', sections } }];"
+      },
+      "id": "00000000-0000-0000-0000-000000000072",
+      "name": "Build Keyword-Only Digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const BATCH_SIZE = 25;\nconst pool = $('Filter New Only').all().map(i => i.json);\nconst batches = [];\nfor (let i = 0; i < pool.length; i += BATCH_SIZE) batches.push(pool.slice(i, i + BATCH_SIZE));\n\nconst RULES = 'You are triaging news items for a weekly banking-industry newsletter covering SME & Commercial, Wealth, Retail, and Digital Assist lines of business, plus Competitor Intelligence and AI Research Radar cross-cutting sections. For EACH item, decide keep/discard and tag lob_tags (sme_commercial, wealth, retail, digital_assist, cross_cutting, community), angle (employee/customer/both/neither), is_customer_news, is_competitive + competitor_name if a known vendor (Temenos, nCino, Q2, Jack Henry, Avaloq, Salesforce FSC/Agentforce, NICE, Genesys, Verint, Glia, Kore.ai, Sierra, Decagon, Alkami, NCR Voyix, Narmi, Nymbus, Bankjoy, Lumin Digital, Finastra, FIS, Fiserv, Oracle Financial Services, Thought Machine, Mambu, SEI, Envestnet, Addepar, Morningstar) is named making a business move, and ai_research + relevance_lens (agentic_ai_banking, ai_governance_compliance, foundation_model_capability, agent_interoperability_standards, ai_regulation_financial_services) if it matches one of those specific reasons — do not tag generic AI hype. Never tag Kasisto as a competitor (it is part of Backbase). keep=false for fluff, duplicates, or off-topic AI content. Full rules: newsletter/prompts/phase1-triage.md. Return ONLY a JSON array, same order and length as input, each item: {id, keep, relevance, lob_tags, angle, is_customer_news, is_competitive, competitor_name, ai_research, relevance_lens, reason}. No markdown fences, no prose.';\n\nreturn batches.map((batch, idx) => ({\n  json: {\n    batch_id: idx,\n    input_map: batch,\n    prompt: RULES + '\\n\\nInput items:\\n' + JSON.stringify(batch.map(a => ({ id: a.id, title: a.title, source: a.source_name, published_date: a.published_date, snippet: (a.content || '').slice(0, 500) })))\n  }\n}));"
+      },
+      "id": "00000000-0000-0000-0000-000000000080",
+      "name": "Build Triage Batches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-3-5-haiku-20241022', max_tokens: 4000, messages: [ { role: 'user', content: $json.prompt } ] }) }}",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000081",
+      "name": "Triage Batch (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        400
+      ],
+      "notes": "Credential: HTTP Header Auth named 'Anthropic API Key' — header name 'x-api-key', value = your Anthropic API key. Runs once per input item (one call per batch)."
+    },
+    {
+      "parameters": {
+        "jsCode": "function safeParse(text) {\n  const cleaned = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const match = cleaned.match(/\\[[\\s\\S]*\\]/);\n  try { return JSON.parse(match ? match[0] : cleaned); } catch (e) { return null; }\n}\n\nconst results = [];\nconst items = $input.all();\nfor (const item of items) {\n  const idx = item.json.__batchIndex !== undefined ? item.json.__batchIndex : null;\n}\n\n// Pair each HTTP response with its originating batch by execution order —\n// n8n preserves item order through a 1:1 node like httpRequest, so item i\n// here corresponds to batch i from 'Build Triage Batches'.\nconst batches = $('Build Triage Batches').all();\nfor (let i = 0; i < items.length; i++) {\n  const responseBody = items[i].json;\n  const text = responseBody.content && responseBody.content[0] ? responseBody.content[0].text : (responseBody.completion || '');\n  const decisions = safeParse(text) || [];\n  const inputMap = new Map(batches[i].json.input_map.map(a => [a.id, a]));\n  for (const d of decisions) {\n    const article = inputMap.get(d.id);\n    if (!article) continue;\n    results.push({ json: { ...article, ...d } });\n  }\n}\nreturn results;"
+      },
+      "id": "00000000-0000-0000-0000-000000000082",
+      "name": "Parse & Validate Triage",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.keep }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.relevance }}",
+              "rightValue": "Low",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000083",
+      "name": "Filter Kept Items",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        1408,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const BATCH_SIZE = 15;\nconst kept = $input.all().map(i => i.json);\nconst batches = [];\nfor (let i = 0; i < kept.length; i += BATCH_SIZE) batches.push(kept.slice(i, i + BATCH_SIZE));\n\nconst RULES = 'Extract structured, citation-ready facts from these banking articles. Do NOT synthesise or add opinion. Use ONLY input content. link MUST be copied exactly from input link — never invent or modify it. If a field is unsupported by the text, return empty string. Full rules: newsletter/prompts/phase2-extract.md. Return ONLY a JSON array, same order/length as input, each item: {id, title, date, source, link, lob_tags, summary, employee_impact, customer_impact, competitive_angle, evidence_quotes, is_customer_news, is_competitive, competitor_name, ai_research, relevance_lens}. No markdown fences, no prose.';\n\nreturn batches.map((batch, idx) => ({\n  json: {\n    batch_id: idx,\n    input_map: batch,\n    prompt: RULES + '\\n\\nInput items:\\n' + JSON.stringify(batch.map(a => ({ id: a.id, title: a.title, source: a.source_name, published_date: a.published_date, link: a.link, content: (a.content || '').slice(0, 3000), lob_tags: a.lob_tags, angle: a.angle, is_customer_news: a.is_customer_news, is_competitive: a.is_competitive, competitor_name: a.competitor_name, ai_research: a.ai_research, relevance_lens: a.relevance_lens })))\n  }\n}));"
+      },
+      "id": "00000000-0000-0000-0000-000000000090",
+      "name": "Build Extraction Batches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1632,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250929', max_tokens: 6000, messages: [ { role: 'user', content: $json.prompt } ] }) }}",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000091",
+      "name": "Extract Facts (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1856,
+        400
+      ],
+      "notes": "Uses the same 'Anthropic API Key' credential. Adjust the model string to whatever Claude model you have access to."
+    },
+    {
+      "parameters": {
+        "jsCode": "function safeParse(text) {\n  const cleaned = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const match = cleaned.match(/\\[[\\s\\S]*\\]/);\n  try { return JSON.parse(match ? match[0] : cleaned); } catch (e) { return null; }\n}\n\nconst items = $input.all();\nconst batches = $('Build Extraction Batches').all();\nconst results = [];\nfor (let i = 0; i < items.length; i++) {\n  const body = items[i].json;\n  const text = body.content && body.content[0] ? body.content[0].text : (body.completion || '');\n  const facts = safeParse(text) || [];\n  const inputLinks = new Set(batches[i].json.input_map.map(a => a.link));\n  for (const f of facts) {\n    // Hard rule: drop any item whose link wasn't in this batch's input set.\n    if (!f.link || !inputLinks.has(f.link)) continue;\n    results.push({ json: f });\n  }\n}\nreturn results;"
+      },
+      "id": "00000000-0000-0000-0000-000000000092",
+      "name": "Parse & Validate Extraction",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const facts = $input.all().map(i => i.json);\nconst byLob = (tag) => facts.filter(f => (f.lob_tags || []).includes(tag) && !f.ai_research && !(f.lob_tags||[]).includes('community'));\nconst exFor = (tag) => facts.filter(f => (f.lob_tags || []).includes(tag) && f.employee_impact);\nconst community = facts.filter(f => (f.lob_tags || []).includes('community'));\nconst communityEmployee = community; // angle split happens inside the prompt output, not pre-filtered here\nconst customerRadar = facts.filter(f => f.is_customer_news);\nconst competitorIntel = facts.filter(f => f.is_competitive);\nconst aiResearch = facts.filter(f => f.ai_research);\nconst digitalAssist = byLob('digital_assist');\n\nconst PREAMBLE = {\n  sme_commercial: 'Write the SME & Commercial section for Jarno. Rules: only use provided facts; every link must match input exactly; include ALL relevant items (cap 8, rank by significance); empty input -> say so plainly. Return JSON: {lob, owner, summary, trend_direction, key_themes, stories:[{title,date,source,link,insight,employee_impact,customer_impact,is_customer_news}], employee_experience_note, strategic_questions}. Full spec: newsletter/prompts/phase3-lob-synthesis.md.',\n  wealth: 'Write the Wealth section for Lennart. Same rules and shape as SME & Commercial. Full spec: newsletter/prompts/phase3-lob-synthesis.md.',\n  retail: 'Write the Retail section for Thomas Silverberg. Same rules and shape as SME & Commercial. Full spec: newsletter/prompts/phase3-lob-synthesis.md.',\n  digital_assist: 'Write the Digital Assist section for Sam Hartrey — bank-employee experience and tooling (contact centre, agent desktop, admin platforms), combining industry-press facts with Reddit employee-voice facts. Return JSON: {lob:\"Digital Assist\", owner:\"Sam Hartrey\", summary, trend_direction, key_themes, stories:[{title,date,source,link,insight,employee_impact}], ground_truth_from_reddit:{summary,examples}, strategic_questions}. Full spec: newsletter/prompts/phase3-digital-assist.md.',\n  community_pulse: 'Write the Community Pulse section analysing Reddit-sourced facts — customer pain points and employee perspectives, grouped by issue, grounded ONLY in input. Return JSON: {posts_analyzed, dominant_sentiment, customer_pain_points:[{issue,frequency,examples,digital_assist_opportunity}], employee_perspectives:[{challenge,impact,frequency,examples}], top_concerns, strategic_questions}. Full spec: newsletter/prompts/phase3-community-pulse.md.',\n  customer_radar: 'Write the Customer Radar section — publicly reported news about Backbase customer banks, external sources only, grouped by bank. Return JSON: {banks_covered, articles_analyzed, highlights:[{bank,headline,lob_tags,significance,summary,source_links:[{title,url}],backbase_relevance}]}. Full spec: newsletter/prompts/phase3-customer-radar.md.',\n  competitor_intelligence: 'Write the Competitor Intelligence section — factual, neutral coverage of named competitor moves, grouped by competitor, each tagged with move_type and a concrete implication for Backbase (an AI-native Banking OS that coordinates execution across existing core/CRM/data systems). Never tag Kasisto as a competitor. Return JSON: {competitors_covered, articles_analyzed, overview, moves:[{competitor,headline,lob_tags,move_type,significance,summary,source_links:[{title,url}],implication_for_backbase}], watch_items}. Full spec: newsletter/prompts/phase3-competitor-intel.md.',\n  ai_research_radar: 'Write the AI Research Radar section. Backbase is an AI-native Banking OS (acquired Kasisto, agentic AI pioneer, June 2026) with an Authority Layer issuing auditable Decision Tokens for agentic actions. For EVERY item make the \"why this matters to Backbase\" connection explicit and specific — never generic. Group by relevance_lens. Return JSON: {items_analyzed, overview, by_lens:{agentic_ai_banking:[...],ai_governance_compliance:[...],foundation_model_capability:[...],agent_interoperability_standards:[...],ai_regulation_financial_services:[...]} (each entry: {headline,date,source,link,summary,backbase_relevance}), so_what_for_backbase}. Full spec: newsletter/prompts/phase3-ai-research-radar.md.'\n};\n\nfunction section(id, factsForSection, extra) {\n  return {\n    section_id: id,\n    input_facts: factsForSection,\n    prompt: PREAMBLE[id] + (extra || '') + '\\n\\nInput facts:\\n' + JSON.stringify(factsForSection)\n  };\n}\n\nconst buckets = [\n  section('sme_commercial', byLob('sme_commercial')),\n  section('wealth', byLob('wealth')),\n  section('retail', byLob('retail')),\n  section('digital_assist', digitalAssist, '\\n\\nEmployee-voice Reddit facts:\\n' + JSON.stringify(communityEmployee)),\n  section('community_pulse', community),\n  section('customer_radar', customerRadar),\n  section('competitor_intelligence', competitorIntel),\n  section('ai_research_radar', aiResearch)\n];\n\nreturn buckets.map((b) => ({ json: b }));"
+      },
+      "id": "00000000-0000-0000-0000-000000000100",
+      "name": "Build Phase 3 Buckets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2304,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250929', max_tokens: 4000, messages: [ { role: 'user', content: $json.prompt } ] }) }}",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000101",
+      "name": "Synthesise Section (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2528,
+        400
+      ],
+      "notes": "Runs once per bucket item — 8 calls (4 LOBs + Community Pulse + Customer Radar + Competitor Intelligence + AI Research Radar)."
+    },
+    {
+      "parameters": {
+        "jsCode": "function safeParse(text) {\n  const cleaned = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n  try { return JSON.parse(match ? match[0] : cleaned); } catch (e) { return null; }\n}\n\nconst items = $input.all();\nconst buckets = $('Build Phase 3 Buckets').all();\nconst out = [];\nfor (let i = 0; i < items.length; i++) {\n  const body = items[i].json;\n  const text = body.content && body.content[0] ? body.content[0].text : (body.completion || '');\n  const parsed = safeParse(text);\n  const sectionId = buckets[i].json.section_id;\n  const validLinks = new Set((buckets[i].json.input_facts || []).map(f => f.link).filter(Boolean));\n  const errors = [];\n  if (!parsed) errors.push('response was not valid JSON');\n  else {\n    const linksInOutput = JSON.stringify(parsed).match(/https?:\\/\\/[^\"\\\\]+/g) || [];\n    for (const l of linksInOutput) {\n      if (validLinks.size > 0 && !validLinks.has(l)) errors.push('link not found in input: ' + l);\n    }\n  }\n  out.push({ json: { section_id: sectionId, output: parsed, errors, original_prompt: buckets[i].json.prompt } });\n}\nreturn out;"
+      },
+      "id": "00000000-0000-0000-0000-000000000102",
+      "name": "Parse & Validate Phase 3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2752,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.errors.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000103",
+      "name": "If Section Invalid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2976,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: {\n  section_id: $json.section_id,\n  prompt: 'Your previous response failed schema validation. Fix ONLY the listed issues and return corrected JSON — no other changes, no prose. Errors: ' + JSON.stringify($json.errors) + '\\n\\nPrevious invalid response:\\n' + JSON.stringify($json.output) + '\\n\\nOriginal instructions:\\n' + $json.original_prompt\n} }];"
+      },
+      "id": "00000000-0000-0000-0000-000000000104",
+      "name": "Build Repair Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2976,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250929', max_tokens: 4000, messages: [ { role: 'user', content: $json.prompt } ] }) }}",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000105",
+      "name": "Repair Call (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3200,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function safeParse(text) {\n  const cleaned = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n  try { return JSON.parse(match ? match[0] : cleaned); } catch (e) { return null; }\n}\nconst body = $json;\nconst text = body.content && body.content[0] ? body.content[0].text : (body.completion || '');\nconst parsed = safeParse(text);\nconst sectionId = $('Build Repair Prompt').item.json.section_id;\nif (!parsed) {\n  // Repair also failed — ship with an explicit placeholder rather than\n  // blocking the whole edition.\n  return [{ json: { section_id: sectionId, output: { data_unavailable: true, note: 'Data unavailable this week — repair failed validation twice.' } } }];\n}\nreturn [{ json: { section_id: sectionId, output: parsed } }];"
+      },
+      "id": "00000000-0000-0000-0000-000000000106",
+      "name": "Parse Repair Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3424,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 2
+      },
+      "id": "00000000-0000-0000-0000-000000000107",
+      "name": "Merge Valid + Repaired Sections",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sections = $input.all().map(i => i.json);\nconst byId = {};\nfor (const s of sections) byId[s.section_id] = s.output;\nreturn [{ json: { sections: byId } }];"
+      },
+      "id": "00000000-0000-0000-0000-000000000110",
+      "name": "Assemble Sections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3648,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sections = $json.sections;\nconst PREAMBLE = 'Write the executive brief synthesising these already-produced sections (SME & Commercial, Wealth, Retail, Digital Assist, Community Pulse, Customer Radar, Competitor Intelligence, AI Research Radar). Base this ONLY on the provided section outputs — no new facts or links. Prioritise cross-cutting patterns, especially overlap between Competitor Intelligence and AI Research Radar. If the week is quiet, say so plainly. Return JSON: {overview, key_takeaways (3-5 items), dominant_themes, average_sentiment}. Full spec: newsletter/prompts/phase3-executive-brief.md.';\nreturn [{ json: { prompt: PREAMBLE + '\\n\\nSection outputs:\\n' + JSON.stringify(sections) } }];"
+      },
+      "id": "00000000-0000-0000-0000-000000000111",
+      "name": "Build Executive Brief Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3872,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250929', max_tokens: 2000, messages: [ { role: 'user', content: $json.prompt } ] }) }}",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000112",
+      "name": "Synthesise Executive Brief (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4096,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function safeParse(text) {\n  const cleaned = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n  try { return JSON.parse(match ? match[0] : cleaned); } catch (e) { return null; }\n}\nconst body = $json;\nconst text = body.content && body.content[0] ? body.content[0].text : (body.completion || '');\nconst brief = safeParse(text) || { overview: 'Executive brief unavailable this week.', key_takeaways: [], dominant_themes: [], average_sentiment: 'Neutral' };\nreturn [{ json: { executive_brief: brief } }];"
+      },
+      "id": "00000000-0000-0000-0000-000000000113",
+      "name": "Parse Executive Brief",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4320,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 2
+      },
+      "id": "00000000-0000-0000-0000-000000000120",
+      "name": "Merge Sections + Brief",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        4544,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst assembled = items.find(i => i.sections) || { sections: {} };\nconst brief = items.find(i => i.executive_brief) || { executive_brief: {} };\nconst run = $('Initialize Run').first().json;\nconst poolCount = $('Compute Canonical URL').all().length;\nconst freshCount = $('Filter New Only').all().length;\n\nreturn [{ json: {\n  run_id: run.run_id,\n  edition_date: run.edition_date,\n  week_start: run.week_start,\n  week_end: run.week_end,\n  mode: 'full',\n  dry_run: run.dry_run,\n  executive_summary: brief.executive_brief,\n  sme_commercial: assembled.sections.sme_commercial || {},\n  wealth: assembled.sections.wealth || {},\n  retail: assembled.sections.retail || {},\n  digital_assist: assembled.sections.digital_assist || {},\n  community_pulse: assembled.sections.community_pulse || {},\n  customer_radar: assembled.sections.customer_radar || {},\n  competitor_intelligence: assembled.sections.competitor_intelligence || {},\n  ai_research_radar: assembled.sections.ai_research_radar || {},\n  processing_metadata: {\n    articles_collected: poolCount,\n    articles_after_dedup: freshCount,\n    next_report: run.week_end\n  }\n} }];"
+      },
+      "id": "00000000-0000-0000-0000-000000000121",
+      "name": "Assemble Newsletter JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4768,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\n\nconst esc = (s) => (s || '').toString();\n\nfunction storiesHtml(stories) {\n  return (stories || []).map(s => `\n    <div style=\"background:#F8F9FA;padding:16px;margin-bottom:14px;border-left:4px solid #4A90A4;border-radius:4px;\">\n      <h4 style=\"margin:0 0 8px 0;color:#1B365D;font-size:16px;\">${esc(s.title)}</h4>\n      <p style=\"margin:0 0 8px 0;color:#666;font-size:13px;\">${esc(s.date)} | ${esc(s.source)}</p>\n      <p style=\"margin:0 0 8px 0;color:#333;font-size:14px;\">${esc(s.insight || s.summary)}</p>\n      ${s.employee_impact ? `<p style=\"margin:0 0 8px 0;color:#555;font-size:13px;font-style:italic;\">Employee impact: ${esc(s.employee_impact)}</p>` : ''}\n      <a href=\"${esc(s.link)}\" target=\"_blank\" style=\"color:#4A90A4;font-weight:bold;font-size:13px;\">Read full article &rarr;</a>\n    </div>`).join('');\n}\n\nfunction lobSection(title, owner, section) {\n  if (!section || !section.summary) return '';\n  return `\n  <tr><td style=\"padding:32px;background:#FFFFFF;\">\n    <h2 style=\"margin:0 0 4px 0;color:#1B365D;font-size:22px;border-bottom:2px solid #4A90A4;padding-bottom:8px;\">${title}</h2>\n    <p style=\"margin:0 0 16px 0;color:#999;font-size:13px;\">For ${owner}</p>\n    <p style=\"margin:0 0 16px 0;color:#333;font-size:15px;line-height:1.5;\">${esc(section.summary)}</p>\n    ${storiesHtml(section.stories)}\n    ${section.employee_experience_note ? `<div style=\"background:#FFF8DC;border:1px dashed #F4A261;padding:12px;border-radius:4px;margin-top:12px;\"><strong style=\"color:#92400E;font-size:13px;\">Employee experience in this segment:</strong><p style=\"margin:4px 0 0 0;color:#333;font-size:13px;\">${esc(section.employee_experience_note)}</p></div>` : ''}\n    ${(section.strategic_questions || []).length ? `<div style=\"margin-top:16px;\"><strong style=\"color:#1B365D;font-size:13px;\">Questions to raise this week:</strong><ul style=\"margin:6px 0 0 0;padding-left:20px;color:#333;font-size:13px;\">${section.strategic_questions.map(q => `<li>${esc(q)}</li>`).join('')}</ul></div>` : ''}\n  </td></tr>`;\n}\n\nfunction digitalAssistSection(section) {\n  if (!section || !section.summary) return '';\n  const reddit = section.ground_truth_from_reddit;\n  return `\n  <tr><td style=\"padding:32px;background:#FFFFFF;\">\n    <h2 style=\"margin:0 0 4px 0;color:#1B365D;font-size:22px;border-bottom:2px solid #4A90A4;padding-bottom:8px;\">Digital Assist</h2>\n    <p style=\"margin:0 0 16px 0;color:#999;font-size:13px;\">For Sam Hartrey</p>\n    <p style=\"margin:0 0 16px 0;color:#333;font-size:15px;line-height:1.5;\">${esc(section.summary)}</p>\n    ${storiesHtml(section.stories)}\n    ${reddit && reddit.summary ? `<div style=\"background:#FFF8DC;border:1px dashed #F4A261;padding:12px;border-radius:4px;margin-top:12px;\"><strong style=\"color:#92400E;font-size:13px;\">Ground truth from Reddit:</strong><p style=\"margin:4px 0 0 0;color:#333;font-size:13px;\">${esc(reddit.summary)}</p></div>` : ''}\n    ${(section.strategic_questions || []).length ? `<div style=\"margin-top:16px;\"><strong style=\"color:#1B365D;font-size:13px;\">Questions to raise this week:</strong><ul style=\"margin:6px 0 0 0;padding-left:20px;color:#333;font-size:13px;\">${section.strategic_questions.map(q => `<li>${esc(q)}</li>`).join('')}</ul></div>` : ''}\n  </td></tr>`;\n}\n\nfunction communitySection(c) {\n  if (!c || !c.posts_analyzed) return '';\n  return `\n  <tr><td style=\"padding:32px;background:#FFF8DC;\">\n    <h2 style=\"margin:0 0 16px 0;color:#1B365D;font-size:22px;border-bottom:2px solid #F4A261;padding-bottom:8px;\">Community Pulse</h2>\n    ${(c.customer_pain_points||[]).map(p => `<div style=\"background:#FFF;padding:14px;margin-bottom:12px;border-left:4px solid #E76F51;border-radius:4px;\"><strong style=\"color:#1B365D;\">${esc(p.issue)}</strong><p style=\"margin:6px 0;color:#333;font-size:13px;\">${esc((p.examples||[])[0])}</p><p style=\"margin:0;color:#666;font-size:12px;\">Frequency: ${esc(p.frequency)}</p></div>`).join('')}\n    ${(c.employee_perspectives||[]).map(p => `<div style=\"background:#FFF;padding:14px;margin-bottom:12px;border-left:4px solid #264653;border-radius:4px;\"><strong style=\"color:#1B365D;\">${esc(p.challenge)}</strong><p style=\"margin:6px 0;color:#333;font-size:13px;\">${esc(p.impact)}</p></div>`).join('')}\n  </td></tr>`;\n}\n\nfunction customerRadarSection(c) {\n  if (!c || !c.highlights || !c.highlights.length) return '';\n  return `\n  <tr><td style=\"padding:32px;background:#FFFBF0;\">\n    <h2 style=\"margin:0 0 16px 0;color:#1B365D;font-size:22px;border-bottom:2px solid #F59E0B;padding-bottom:8px;\">Customer Radar</h2>\n    ${c.highlights.map(h => `\n      <div style=\"background:linear-gradient(135deg,#FEF3C7 0%,#FFF 100%);padding:16px;margin-bottom:14px;border-left:5px solid #F59E0B;border-radius:4px;\">\n        <strong style=\"color:#92400E;\">${esc(h.bank)}</strong> — ${esc(h.headline)}\n        <p style=\"margin:8px 0;color:#333;font-size:13px;\">${esc(h.summary)}</p>\n        <p style=\"margin:0 0 8px 0;color:#047857;font-size:13px;\">Backbase relevance: ${esc(h.backbase_relevance)}</p>\n        ${(h.source_links||[]).map(l => `<a href=\"${esc(l.url)}\" style=\"color:#F59E0B;font-size:12px;display:block;\">${esc(l.title)} &rarr;</a>`).join('')}\n      </div>`).join('')}\n  </td></tr>`;\n}\n\nfunction competitorSection(c) {\n  if (!c || !c.moves || !c.moves.length) return '';\n  return `\n  <tr><td style=\"padding:32px;background:#F3F4F6;\">\n    <h2 style=\"margin:0 0 16px 0;color:#1B365D;font-size:22px;border-bottom:2px solid #6B7280;padding-bottom:8px;\">Competitor Intelligence</h2>\n    <p style=\"margin:0 0 16px 0;color:#333;font-size:14px;\">${esc(c.overview)}</p>\n    ${c.moves.map(m => `\n      <div style=\"background:#FFF;padding:16px;margin-bottom:14px;border-left:4px solid #6B7280;border-radius:4px;\">\n        <strong style=\"color:#1B365D;\">${esc(m.competitor)}</strong> — ${esc(m.headline)}\n        <p style=\"margin:8px 0;color:#333;font-size:13px;\">${esc(m.summary)}</p>\n        <p style=\"margin:0 0 8px 0;color:#4B5563;font-size:13px;font-style:italic;\">Implication: ${esc(m.implication_for_backbase)}</p>\n        ${(m.source_links||[]).map(l => `<a href=\"${esc(l.url)}\" style=\"color:#6B7280;font-size:12px;display:block;\">${esc(l.title)} &rarr;</a>`).join('')}\n      </div>`).join('')}\n  </td></tr>`;\n}\n\nfunction aiRadarSection(a) {\n  if (!a || !a.by_lens) return '';\n  const lenses = Object.entries(a.by_lens).filter(([,v]) => v && v.length);\n  if (!lenses.length) return '';\n  const lensTitle = { agentic_ai_banking: 'Agentic AI in banking', ai_governance_compliance: 'AI governance & compliance', foundation_model_capability: 'Foundation model capability', agent_interoperability_standards: 'Agent interoperability standards', ai_regulation_financial_services: 'AI regulation (financial services)' };\n  return `\n  <tr><td style=\"padding:32px;background:#EEF2FF;\">\n    <h2 style=\"margin:0 0 16px 0;color:#1B365D;font-size:22px;border-bottom:2px solid #6366F1;padding-bottom:8px;\">AI Research Radar</h2>\n    <p style=\"margin:0 0 16px 0;color:#333;font-size:14px;\">${esc(a.overview)}</p>\n    ${lenses.map(([lens, entries]) => `\n      <h4 style=\"color:#3730A3;font-size:14px;margin:16px 0 8px 0;\">${lensTitle[lens] || lens}</h4>\n      ${entries.map(e => `\n        <div style=\"background:#FFF;padding:14px;margin-bottom:10px;border-left:4px solid #6366F1;border-radius:4px;\">\n          <strong style=\"color:#1B365D;font-size:14px;\">${esc(e.headline)}</strong>\n          <p style=\"margin:6px 0;color:#333;font-size:13px;\">${esc(e.summary)}</p>\n          <p style=\"margin:0 0 6px 0;color:#4338CA;font-size:13px;font-style:italic;\">Why it matters to Backbase: ${esc(e.backbase_relevance)}</p>\n          <a href=\"${esc(e.link)}\" style=\"color:#6366F1;font-size:12px;\">${esc(e.source)} &rarr;</a>\n        </div>`).join('')}`).join('')}\n  </td></tr>`;\n}\n\nconst html = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head>\n<body style=\"margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#F8F9FA;\">\n<table cellpadding=\"0\" cellspacing=\"0\" width=\"100%\"><tr><td align=\"center\" style=\"padding:20px 0;\">\n<table cellpadding=\"0\" cellspacing=\"0\" width=\"640\" style=\"max-width:640px;background:#FFF;\">\n  <tr><td style=\"background:#1B365D;padding:28px 32px;text-align:center;\">\n    <h1 style=\"margin:0;color:#FFF;font-size:26px;\">Backbase Insights</h1>\n    <p style=\"margin:8px 0 0 0;color:#FFF;font-size:16px;\">${esc(data.week_start)} to ${esc(data.week_end)}</p>\n  </td></tr>\n  <tr><td style=\"padding:32px;background:#FFF;\">\n    <h2 style=\"margin:0 0 16px 0;color:#1B365D;font-size:22px;border-bottom:2px solid #4A90A4;padding-bottom:8px;\">Executive Brief</h2>\n    <p style=\"margin:0 0 16px 0;color:#333;font-size:15px;line-height:1.6;\">${esc(data.executive_summary.overview)}</p>\n    <ul style=\"margin:0;padding-left:20px;color:#333;font-size:14px;\">${(data.executive_summary.key_takeaways||[]).map(t => `<li style=\"margin-bottom:6px;\">${esc(t)}</li>`).join('')}</ul>\n  </td></tr>\n  ${communitySection(data.community_pulse)}\n  ${customerRadarSection(data.customer_radar)}\n  ${lobSection('SME & Commercial', 'Jarno', data.sme_commercial)}\n  ${lobSection('Wealth', 'Lennart', data.wealth)}\n  ${lobSection('Retail', 'Thomas Silverberg', data.retail)}\n  ${digitalAssistSection(data.digital_assist)}\n  ${competitorSection(data.competitor_intelligence)}\n  ${aiRadarSection(data.ai_research_radar)}\n  <tr><td style=\"background:#1B365D;padding:24px 32px;text-align:center;\">\n    <p style=\"margin:0;color:#FFF;font-size:13px;\">${data.processing_metadata.articles_collected} articles collected | ${data.processing_metadata.articles_after_dedup} after dedup</p>\n    <p style=\"margin:8px 0 0 0;color:#4A90A4;font-size:12px;\">Backbase Insights — run ${esc(data.run_id)}${data.dry_run ? ' (DRY RUN)' : ''}</p>\n  </td></tr>\n</table></td></tr></table></body></html>`;\n\nreturn [{ json: { ...data, html, subject: 'Backbase Insights — ' + data.week_start + ' to ' + data.week_end } }];"
+      },
+      "id": "00000000-0000-0000-0000-000000000130",
+      "name": "Generate HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4992,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "merged_raw_content",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "date",
+              "fieldValue": "={{ $json.edition_date }}"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        }
+      },
+      "id": "00000000-0000-0000-0000-000000000131",
+      "name": "Record Structured Content",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        5216,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "newsletter_html",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "date",
+              "fieldValue": "={{ $json.edition_date }}"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $json.html }}"
+            }
+          ]
+        }
+      },
+      "id": "00000000-0000-0000-0000-000000000132",
+      "name": "Record Full HTML",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        5216,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "edition_metadata",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "run_id",
+              "fieldValue": "={{ $json.run_id }}"
+            },
+            {
+              "fieldId": "edition_date",
+              "fieldValue": "={{ $json.edition_date }}"
+            },
+            {
+              "fieldId": "week_start",
+              "fieldValue": "={{ $json.week_start }}"
+            },
+            {
+              "fieldId": "week_end",
+              "fieldValue": "={{ $json.week_end }}"
+            },
+            {
+              "fieldId": "mode",
+              "fieldValue": "={{ $json.mode }}"
+            },
+            {
+              "fieldId": "dry_run",
+              "fieldValue": "={{ $json.dry_run }}"
+            },
+            {
+              "fieldId": "articles_collected",
+              "fieldValue": "={{ $json.processing_metadata.articles_collected }}"
+            },
+            {
+              "fieldId": "articles_after_dedup",
+              "fieldValue": "={{ $json.processing_metadata.articles_after_dedup }}"
+            },
+            {
+              "fieldId": "approval_status",
+              "fieldValue": "={{ $json.dry_run ? 'auto_dry_run' : 'pending' }}"
+            }
+          ]
+        }
+      },
+      "id": "00000000-0000-0000-0000-000000000133",
+      "name": "Record Edition Metadata",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        5216,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.dry_run }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000140",
+      "name": "If Dry Run",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        5440,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ...$json, note: 'DRY RUN complete — preview saved to Supabase (newsletter_html, merged_raw_content). No email/PDF/Drive sent. Review, then trigger again from the Monday cron or manually to send for real.' } }];"
+      },
+      "id": "00000000-0000-0000-0000-000000000141",
+      "name": "Dry Run Stop",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5664,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { html: $json.html, options: { format: 'A4', printBackground: true, margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' } } } }];"
+      },
+      "id": "00000000-0000-0000-0000-000000000150",
+      "name": "Convert HTML to JSON for PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5664,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://production-sfo.browserless.io/pdf",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000151",
+      "name": "Generate PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5888,
+        400
+      ],
+      "notes": "SECURITY: the v2 workflow had a Browserless token hardcoded in this node's URL — rotate that token immediately. Credential here: HTTP Header Auth named 'Browserless API' — header name 'Authorization', value 'Bearer <new token>' (or whatever header your Browserless plan expects)."
+    },
+    {
+      "parameters": {
+        "fromEmail": "YOUR_SEND_ADDRESS@example.com",
+        "toEmail": "YOUR_RECIPIENT@example.com",
+        "subject": "={{ $('Generate HTML').item.json.subject }}",
+        "html": "={{ $('Generate HTML').item.json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "data"
+        }
+      },
+      "id": "00000000-0000-0000-0000-000000000152",
+      "name": "Send email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        6112,
+        400
+      ],
+      "notes": "Update fromEmail/toEmail before activating. Attach the email/SMTP credential in the n8n UI."
+    },
+    {
+      "parameters": {
+        "name": "={{ 'backbase_insights_' + $('Generate HTML').item.json.edition_date }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive"
+        },
+        "options": {}
+      },
+      "id": "00000000-0000-0000-0000-000000000153",
+      "name": "Upload file",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        6112,
+        500
+      ],
+      "notes": "Set folderId to your archive folder and attach your Google Drive credential in the UI."
+    }
+  ],
+  "connections": {
+    "Monday 6 AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set dryRun false",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Dry Run Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set dryRun true",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set dryRun false": {
+      "main": [
+        [
+          {
+            "node": "Initialize Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set dryRun true": {
+      "main": [
+        [
+          {
+            "node": "Initialize Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Run": {
+      "main": [
+        [
+          {
+            "node": "Load RSS Sources",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Reddit Sources",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Customer Banks (Tier A)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "PR Newswire Feed",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Competitor Watchlist",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load AI Research Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load RSS Sources": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Normalize RSS Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record RSS Failures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize RSS Item": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Reddit Sources": {
+      "main": [
+        [
+          {
+            "node": "Reddit RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reddit RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Normalize Reddit Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Reddit Failures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Reddit Item": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Load Customer Banks (Tier A)": {
+      "main": [
+        [
+          {
+            "node": "Customer Google News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Google News": {
+      "main": [
+        [
+          {
+            "node": "Normalize Customer Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Customer Item": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "PR Newswire Feed": {
+      "main": [
+        [
+          {
+            "node": "Match PR Newswire to Customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match PR Newswire to Customers": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Load Competitor Watchlist": {
+      "main": [
+        [
+          {
+            "node": "Competitor Google News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Competitor Google News": {
+      "main": [
+        [
+          {
+            "node": "Normalize Competitor Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Competitor Item": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Load AI Research Sources": {
+      "main": [
+        [
+          {
+            "node": "AI Research Feed Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Research Feed Read": {
+      "main": [
+        [
+          {
+            "node": "Normalize AI Research Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize AI Research Item": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Merge All Sources": {
+      "main": [
+        [
+          {
+            "node": "Compute Canonical URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Canonical URL": {
+      "main": [
+        [
+          {
+            "node": "Build Dedup Lookup Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Dedup Lookup Filter": {
+      "main": [
+        [
+          {
+            "node": "Dedup Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dedup Lookup": {
+      "main": [
+        [
+          {
+            "node": "Filter New Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter New Only": {
+      "main": [
+        [
+          {
+            "node": "Mark Seen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Seen": {
+      "main": [
+        [
+          {
+            "node": "Budget Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Budget Gate": {
+      "main": [
+        [
+          {
+            "node": "If Mode Is Full Or Triage-Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Mode Is Full Or Triage-Only": {
+      "main": [
+        [
+          {
+            "node": "Build Triage Batches",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Keyword-Only Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Triage Batches": {
+      "main": [
+        [
+          {
+            "node": "Triage Batch (Claude)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Triage Batch (Claude)": {
+      "main": [
+        [
+          {
+            "node": "Parse & Validate Triage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Validate Triage": {
+      "main": [
+        [
+          {
+            "node": "Filter Kept Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Kept Items": {
+      "main": [
+        [
+          {
+            "node": "Build Extraction Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Extraction Batches": {
+      "main": [
+        [
+          {
+            "node": "Extract Facts (Claude)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Facts (Claude)": {
+      "main": [
+        [
+          {
+            "node": "Parse & Validate Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Validate Extraction": {
+      "main": [
+        [
+          {
+            "node": "Build Phase 3 Buckets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Phase 3 Buckets": {
+      "main": [
+        [
+          {
+            "node": "Synthesise Section (Claude)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Synthesise Section (Claude)": {
+      "main": [
+        [
+          {
+            "node": "Parse & Validate Phase 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Validate Phase 3": {
+      "main": [
+        [
+          {
+            "node": "If Section Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Section Invalid": {
+      "main": [
+        [
+          {
+            "node": "Build Repair Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Valid + Repaired Sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Repair Prompt": {
+      "main": [
+        [
+          {
+            "node": "Repair Call (Claude)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Repair Call (Claude)": {
+      "main": [
+        [
+          {
+            "node": "Parse Repair Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Repair Result": {
+      "main": [
+        [
+          {
+            "node": "Merge Valid + Repaired Sections",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Valid + Repaired Sections": {
+      "main": [
+        [
+          {
+            "node": "Assemble Sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Sections": {
+      "main": [
+        [
+          {
+            "node": "Build Executive Brief Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Sections + Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Executive Brief Prompt": {
+      "main": [
+        [
+          {
+            "node": "Synthesise Executive Brief (Claude)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Synthesise Executive Brief (Claude)": {
+      "main": [
+        [
+          {
+            "node": "Parse Executive Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Executive Brief": {
+      "main": [
+        [
+          {
+            "node": "Merge Sections + Brief",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Sections + Brief": {
+      "main": [
+        [
+          {
+            "node": "Assemble Newsletter JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Keyword-Only Digest": {
+      "main": [
+        [
+          {
+            "node": "Assemble Newsletter JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Newsletter JSON": {
+      "main": [
+        [
+          {
+            "node": "Generate HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate HTML": {
+      "main": [
+        [
+          {
+            "node": "Record Structured Content",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Record Full HTML",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Record Edition Metadata",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Dry Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Dry Run": {
+      "main": [
+        [
+          {
+            "node": "Dry Run Stop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Convert HTML to JSON for PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert HTML to JSON for PDF": {
+      "main": [
+        [
+          {
+            "node": "Generate PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate PDF": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "backbase-insights-v3"
+  }
+}

@@ -1,0 +1,1 @@
+return [{ json: { ...$json, note: 'DRY RUN complete — preview saved to Supabase (newsletter_html, merged_raw_content). No email/PDF/Drive sent. Review, then trigger again from the Monday cron or manually to send for real.' } }];

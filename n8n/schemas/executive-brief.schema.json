@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "required": ["overview", "key_takeaways", "dominant_themes", "average_sentiment"],
+  "properties": {
+    "overview": {
+      "type": "string",
+      "description": "Two to three paragraphs synthesising the week's cross-cutting developments."
+    },
+    "key_takeaways": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 5,
+      "items": { "type": "string" }
+    },
+    "dominant_themes": {
+      "type": "array",
+      "maxItems": 5,
+      "items": { "type": "string" },
+      "description": "Patterns visible across two or more sections."
+    },
+    "average_sentiment": {
+      "type": "string",
+      "enum": ["Positive", "Negative", "Neutral", "Mixed"]
+    }
+  }
+}

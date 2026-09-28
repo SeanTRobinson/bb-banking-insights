@@ -1,0 +1,15 @@
+{
+  "name": "backbase-insights-newsletter",
+  "private": true,
+  "type": "module",
+  "description": "n8n workflow build tooling and tests for the Backbase Insights newsletter. No runtime dependencies — build-workflow.mjs and the test suite use only Node's standard library.",
+  "scripts": {
+    "build": "node n8n/build-workflow.mjs",
+    "build:check": "node n8n/build-workflow.mjs --check",
+    "test": "node --test n8n/test/*.test.mjs",
+    "audit-sources": "node n8n/audit-sources.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
